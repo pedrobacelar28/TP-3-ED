@@ -1,21 +1,33 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
 #ifndef ESTACAO_H
 #define ESTACAO_H
 
-#include "tipos_comuns.h" // Inclua o novo arquivo de tipos comuns
-
 #define MAX_LENGTH 1024
+#define MAX_RECHARGE_STATIONS 800000
+
+typedef struct {
+    char idend[50];
+    long id_logrado;
+    char sigla_tipo[10];
+    char nome_logra[100];
+    int numero_imo;
+    char nome_bairr[50];
+    char nome_regio[50];
+    int cep;
+    double x;
+    double y;
+} addr_t, *ptr_addr_t;
 
 typedef struct {
     addr_t station;
+    int active;
 } station_state_t;
 
-#include "quadtree.h"
+typedef struct knn {
+    double dist;
+    int id;
+} knn_t, *ptr_knn_t;
 
-extern QuadTree *stationTree;
+extern station_state_t stations[MAX_RECHARGE_STATIONS];
 extern int num_stations;
 
 void activate_station(const char *idend);

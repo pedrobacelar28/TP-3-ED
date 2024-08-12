@@ -1,12 +1,15 @@
 #include "estacao.h"
+#include "quadtree.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
-station_state_t stations[MAX_RECHARGE_STATIONS];
+// Variáveis globais
+QuadTree *stationTree = NULL;
 int num_stations = 0;
 
+// Função auxiliar para substituir vírgulas por pontos em uma string
 void replace_comma_with_dot(char *str) {
     while (*str) {
         if (*str == ',') {
@@ -16,6 +19,7 @@ void replace_comma_with_dot(char *str) {
     }
 }
 
+// Função para carregar os dados das estações de um arquivo CSV
 int load_csv(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (!file) {
@@ -24,24 +28,31 @@ int load_csv(const char *filename) {
     }
 
     char line[MAX_LENGTH];
+    Retangulo boundary = {{0, 0}, {100000000, 100000000}}; // Limites iniciais da QuadTree (ajuste conforme necessário)
+    stationTree = criarQuadTree(boundary);
     int i = 0;
 
-    while (fgets(line, sizeof(line), file) && i < MAX_RECHARGE_STATIONS) {
+    while (fgets(line, sizeof(line), file)) {
         replace_comma_with_dot(line);
 
+        addr_t *station = (addr_t*)malloc(sizeof(addr_t));
         sscanf(line, "%49[^;];%ld;%9[^;];%99[^;];%d;%49[^;];%49[^;];%d;%lf;%lf",
-               stations[i].station.idend,
-               &stations[i].station.id_logrado,
-               stations[i].station.sigla_tipo,
-               stations[i].station.nome_logra,
-               &stations[i].station.numero_imo,
-               stations[i].station.nome_bairr,
-               stations[i].station.nome_regio,
-               &stations[i].station.cep,
-               &stations[i].station.x,
-               &stations[i].station.y);
-        stations[i].active = 0;
-        i++;
+               station->idend,
+               &station->id_logrado,
+               station->sigla_tipo,
+               station->nome_logra,
+               &station->numero_imo,
+               station->nome_bairr,
+               station->nome_regio,
+               &station->cep,
+               &station->x,
+               &station->y);
+        station->active = 0;
+
+        Ponto p = {.x = station->x, .y = station->y, .station_info = station};
+        if (insere(stationTree, p)) {
+            i++;
+        }
     }
 
     fclose(file);
@@ -49,48 +60,39 @@ int load_csv(const char *filename) {
     return i;
 }
 
+// Função para ativar uma estação
 void activate_station(const char *idend) {
-    for (int i = 0; i < num_stations; i++) {
-        if (strcmp(stations[i].station.idend, idend) == 0) {
-            if (stations[i].active) {
-                printf("Ponto de recarga %s já estava ativo.\n", idend);
-            } else {
-                stations[i].active = 1;
-                printf("Ponto de recarga %s ativado.\n", idend);
-            }
-            return;
+    int count = 0;
+    Retangulo boundary = {{0, 0}, {100000000, 100000000}};
+    Ponto *pontos = buscaIntervalo(stationTree, boundary, &count);
+
+    for (int i = 0; i < count; i++) {
+        if (strcmp(idend, pontos[i].station_info->idend) == 0) {
+            pontos[i].station_info->active = 1;
+            break;
         }
     }
-    printf("Ponto de recarga %s não encontrado.\n", idend);
+
+    free(pontos);
 }
 
+// Função para desativar uma estação
 void deactivate_station(const char *idend) {
-    for (int i = 0; i < num_stations; i++) {
-        if (strcmp(stations[i].station.idend, idend) == 0) {
-            if (!stations[i].active) {
-                printf("Ponto de recarga %s já estava desativado.\n", idend);
-            } else {
-                stations[i].active = 0;
-                printf("Ponto de recarga %s desativado.\n", idend);
-            }
-            return;
+    int count = 0;
+    Retangulo boundary = {{0, 0}, {100000000, 100000000}};
+    Ponto *pontos = buscaIntervalo(stationTree, boundary, &count);
+
+    for (int i = 0; i < count; i++) {
+        if (strcmp(idend, pontos[i].station_info->idend) == 0) {
+            pontos[i].station_info->active = 0;
+            break;
         }
     }
-    printf("Ponto de recarga %s não encontrado.\n", idend);
+
+    free(pontos);
 }
 
-int cmpknn(const void* a, const void* b) {
-    ptr_knn_t k1 = (ptr_knn_t) a;
-    ptr_knn_t k2 = (ptr_knn_t) b;
-    if (k1->dist > k2->dist) return 1;
-    else if (k1->dist < k2->dist) return -1;
-    else return 0;
-}
-
-double calculate_distance(double x1, double y1, double x2, double y2) {
-    return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2) * 1.0);
-}
-
+// Função para imprimir informações da estação de recarga
 void printrecharge(addr_t *rechargevet) {
     printf("%s %s, %d, %s, %s, %d", 
            rechargevet->sigla_tipo,
@@ -101,40 +103,28 @@ void printrecharge(addr_t *rechargevet) {
            rechargevet->cep);
 }
 
+// Função para encontrar as estações mais próximas
 void find_nearest_stations(double x, double y, int n) {
     if (n <= 0) {
         printf("Número de estações a procurar deve ser maior que 0.\n");
         return;
     }
 
-    ptr_knn_t kvet = (ptr_knn_t) malloc(num_stations * sizeof(knn_t));
+    Ponto p = {.x = x, .y = y, .station_info = NULL};
+    Ponto *pontos = (Ponto*)malloc(n * sizeof(Ponto));
     int count = 0;
 
-    for (int i = 0; i < num_stations; i++) {
-        if (stations[i].active) {
-            kvet[count].id = i;
-            kvet[count].dist = calculate_distance(x, y, stations[i].station.x, stations[i].station.y);
-            count++;
-        }
+    buscaKNN(stationTree, p, n, pontos, &count);
+
+    for (int i = 0; i < count; i++) {
+        printrecharge(pontos[i].station_info);
+        printf(" (%f)\n", (sqrt(pow(x - pontos[i].x, 2) + pow(y - pontos[i].y, 2) * 1.0)));
     }
 
-    if (count == 0) {
-        printf("Nenhuma estação ativa encontrada.\n");
-        free(kvet);
-        return;
-    }
-
-    qsort(kvet, count, sizeof(knn_t), cmpknn);
-
-    int kmax = (n < count) ? n : count;
-    for (int i = 0; i < kmax; i++) {
-        printrecharge(&stations[kvet[i].id].station);
-        printf(" (%f)\n", kvet[i].dist);
-    }
-
-    free(kvet);
+    free(pontos);
 }
 
+// Função para processar os comandos do arquivo
 void process_commands(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (!file) {
