@@ -4,9 +4,9 @@ int main() {
     QuadTree *stationTree = NULL;
 
     // Passa o endereço do ponteiro stationTree para permitir modificação
-    load_csv("geracarga.base", &stationTree);
+    load_csv("data/geracarga.base", &stationTree);
 
-    FILE *file = fopen("geracarga.ev", "r");
+    FILE *file = fopen("data/geracarga.ev", "r");
     if (!file) {
         perror("Não foi possível abrir o arquivo de comandos");
         return 0;
