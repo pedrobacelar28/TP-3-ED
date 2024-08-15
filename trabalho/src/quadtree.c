@@ -47,13 +47,13 @@ bool insere(QuadTree* qt, Ponto p) {
 }
 
 void dividir(QuadTree* qt) {
-    int midX = (qt->limites.lb.x + qt->limites.rt.x) / 2;
-    int midY = (qt->limites.lb.y + qt->limites.rt.y) / 2;
+    double midX = (double)(qt->limites.lb.x + qt->limites.rt.x) / 2.0;
+    double midY = (double)(qt->limites.lb.y + qt->limites.rt.y) / 2.0;
 
     Retangulo nw = {{qt->limites.lb.x, midY}, {midX, qt->limites.rt.y}};
     Retangulo ne = {{midX, midY}, {qt->limites.rt.x, qt->limites.rt.y}};
     Retangulo sw = {{qt->limites.lb.x, qt->limites.lb.y}, {midX, midY}};
-    Retangulo se = {{midX, qt->limites.lb.y}, {qt->limites.rt.x, midY}};
+    Retangulo se = {{midX, qt->limites.lb.y}, {qt->limites.rt.x, midY}};    
 
     qt->northWest = criarQuadTree(nw);
     qt->northEast = criarQuadTree(ne);
@@ -122,35 +122,118 @@ Ponto* buscaIntervalo(QuadTree* qt, Retangulo r, int* count) {
     return pontos;
 }
 
-void buscaKNN(QuadTree* qt, Ponto p, int K, Ponto* pontos, int* count) {
-    if (!contemPonto(qt->limites, p))
-        return;
+double calcularDistancia(Ponto a, Ponto b) {
+    return sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
+}
+bool pontoJaNoHeap(PontoDistancia* heap, int tamanhoHeap, Ponto* ponto) {
+    for (int i = 0; i < tamanhoHeap; i++) {
+        if (heap[i].ponto == ponto) {
+            return true; // Ponto já está no heap
+        }
+    }
+    return false;
+}
+void maxHeapify(PontoDistancia* heap, int tamanhoHeap, int i) {
+    int maior = i;
+    int esquerda = 2 * i + 1;
+    int direita = 2 * i + 2;
 
-    if (qt->ponto != NULL) {
-        double dist = sqrt(pow(p.x - qt->ponto->x, 2) + pow(p.y - qt->ponto->y, 2));
-        if (*count < K) {
-            pontos[*count] = *(qt->ponto);
-            (*count)++;
-        } else {
-            double maxDist = sqrt(pow(p.x - pontos[0].x, 2) + pow(p.y - pontos[0].y, 2));
-            int maxIndex = 0;
-            for (int i = 1; i < K; i++) {
-                double tempDist = sqrt(pow(p.x - pontos[i].x, 2) + pow(p.y - pontos[i].y, 2));
-                if (tempDist > maxDist) {
-                    maxDist = tempDist;
-                    maxIndex = i;
-                }
-            }
-            if (dist < maxDist) {
-                pontos[maxIndex] = *(qt->ponto);
+    if (esquerda < tamanhoHeap && heap[esquerda].distancia > heap[maior].distancia)
+        maior = esquerda;
+
+    if (direita < tamanhoHeap && heap[direita].distancia > heap[maior].distancia)
+        maior = direita;
+
+    if (maior != i) {
+        PontoDistancia temp = heap[i];
+        heap[i] = heap[maior];
+        heap[maior] = temp;
+
+        maxHeapify(heap, tamanhoHeap, maior);
+    }
+}
+// Função para inserir no max-heap (fila de prioridade) para armazenar os K pontos mais próximos
+void inserirPontoProximo(PontoDistancia* heap, int* tamanhoHeap, int K, Ponto* ponto, double distancia) {
+    if (pontoJaNoHeap(heap, *tamanhoHeap, ponto)) {
+        return; // Não insere duplicatas
+    }
+
+    if (*tamanhoHeap < K) {
+        // Inserir diretamente se ainda não atingimos K elementos
+        heap[*tamanhoHeap].ponto = ponto;
+        heap[*tamanhoHeap].distancia = distancia;
+        (*tamanhoHeap)++;
+        // Reorganiza o heap para manter a propriedade de max-heap
+        for (int i = (*tamanhoHeap / 2) - 1; i >= 0; i--) {
+            maxHeapify(heap, *tamanhoHeap, i);
+        }
+    } else if (distancia < heap[0].distancia) {
+        // Substitui a raiz (maior elemento) e reorganiza o heap
+        heap[0].ponto = ponto;
+        heap[0].distancia = distancia;
+        maxHeapify(heap, *tamanhoHeap, 0);
+    }
+}
+void reorganizarHeap(PontoDistancia* heap, int tamanhoHeap) {
+    int i = 0;
+    while (2 * i + 1 < tamanhoHeap) {
+        int maiorFilho = 2 * i + 1;
+        if (2 * i + 2 < tamanhoHeap && heap[2 * i + 2].distancia > heap[maiorFilho].distancia) {
+            maiorFilho = 2 * i + 2;
+        }
+        if (heap[i].distancia >= heap[maiorFilho].distancia) {
+            break;
+        }
+        PontoDistancia temp = heap[i];
+        heap[i] = heap[maiorFilho];
+        heap[maiorFilho] = temp;
+        i = maiorFilho;
+    }
+}
+
+void buscaKNNRecursiva(QuadTree* qt, Ponto p, PontoDistancia* heap, int* tamanhoHeap, int K) {
+    if (qt == NULL) return;
+
+    // Calcula a distância do ponto na QuadTree ao ponto de referência
+    if (qt->ponto != NULL && qt->ponto->station_info != NULL && qt->ponto->station_info->active) {
+        double distancia = calcularDistancia(*qt->ponto, p);
+        inserirPontoProximo(heap, tamanhoHeap, K, qt->ponto, distancia);
+    }
+
+    // Ordena os quadrantes para explorar os mais próximos primeiro
+    double distancias[4] = {DBL_MAX, DBL_MAX, DBL_MAX, DBL_MAX};
+    QuadTree* quadrantes[4] = {qt->northWest, qt->northEast, qt->southWest, qt->southEast};
+
+    if (qt->northWest != NULL) 
+        distancias[0] = calcularDistancia(p, (Ponto){(qt->limites.lb.x + qt->limites.rt.x)/2, qt->limites.rt.y, NULL});
+    if (qt->northEast != NULL) 
+        distancias[1] = calcularDistancia(p, (Ponto){qt->limites.rt.x, (qt->limites.lb.y + qt->limites.rt.y)/2, NULL});
+    if (qt->southWest != NULL) 
+        distancias[2] = calcularDistancia(p, (Ponto){qt->limites.lb.x, (qt->limites.lb.y + qt->limites.rt.y)/2, NULL});
+    if (qt->southEast != NULL) 
+        distancias[3] = calcularDistancia(p, (Ponto){(qt->limites.lb.x + qt->limites.rt.x)/2, qt->limites.lb.y, NULL});
+
+    // Ordena os quadrantes em ordem de proximidade
+    for (int i = 0; i < 3; i++) {
+        for (int j = i + 1; j < 4; j++) {
+            if (distancias[j] < distancias[i]) {
+                double tempDist = distancias[i];
+                distancias[i] = distancias[j];
+                distancias[j] = tempDist;
+
+                QuadTree* tempQt = quadrantes[i];
+                quadrantes[i] = quadrantes[j];
+                quadrantes[j] = tempQt;
             }
         }
     }
 
-    if (qt->northWest != NULL) {
-        buscaKNN(qt->northWest, p, K, pontos, count);
-        buscaKNN(qt->northEast, p, K, pontos, count);
-        buscaKNN(qt->southWest, p, K, pontos, count);
-        buscaKNN(qt->southEast, p, K, pontos, count);
+    // Explora os quadrantes na ordem de proximidade
+    for (int i = 0; i < 4; i++) {
+        if (quadrantes[i] != NULL) {
+            buscaKNNRecursiva(quadrantes[i], p, heap, tamanhoHeap, K);
+        }
     }
 }
+
+
