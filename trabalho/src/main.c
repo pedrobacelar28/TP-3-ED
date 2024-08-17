@@ -1,20 +1,41 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "estacao.h"
 
-int main() {
+int main(int argc, char *argv[]) {
+    char *baseFile = NULL;
+    char *eventFile = NULL;
+
+    // Verifica e processa os argumentos da linha de comando
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-b") == 0 && i + 1 < argc) {
+            baseFile = argv[i + 1];
+        } else if (strcmp(argv[i], "-e") == 0 && i + 1 < argc) {
+            eventFile = argv[i + 1];
+        }
+    }
+
+    // Verifica se os arquivos foram especificados
+    if (baseFile == NULL || eventFile == NULL) {
+        return 1;
+    }
+
     QuadTree *stationTree = NULL;
 
-    // Passa o endereço do ponteiro stationTree para permitir modificação
-    load_csv("data/geracarga.base", &stationTree);
+    // Carrega os dados da base
+    load_csv(baseFile, &stationTree);
 
-    FILE *file = fopen("data/geracarga.ev", "r");
+    // Abre o arquivo de eventos
+    FILE *file = fopen(eventFile, "r");
     if (!file) {
-        perror("Não foi possível abrir o arquivo de comandos");
-        return 0;
+        perror("Não foi possível abrir o arquivo de eventos");
+        return 1;
     }
 
     char line[MAX_LENGTH];
     while (fgets(line, sizeof(line), file)) {
-                // Ignora linhas em branco ou que não começam com um comando válido
+        // Ignora linhas em branco ou que não começam com um comando válido
         if (line[0] == '\n' || line[0] == '\r' || line[0] == '\0') {
             continue;
         }

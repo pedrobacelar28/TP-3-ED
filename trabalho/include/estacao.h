@@ -18,11 +18,11 @@ typedef struct {
 extern QuadTree *stationTree;
 extern int num_stations;
 
+
+int load_csv(const char *filename, QuadTree **stationTree);
 void activate_station(const char *idend,QuadTree *stationTree);
 void deactivate_station(const char *idend,QuadTree *stationTree);
-void find_nearest_stations(double x, double y, int n,QuadTree *stationTree);
 void printrecharge(addr_t *rechargevet);
-double calculate_distance(double x1, double y1, double x2, double y2);
-int load_csv(const char *filename, QuadTree **stationTree);
+void find_nearest_stations(double x, double y, int n,QuadTree *stationTree);
 
 #endif

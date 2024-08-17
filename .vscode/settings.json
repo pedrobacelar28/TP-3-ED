@@ -1,6 +1,9 @@
 {
     "files.associations": {
         "estacao.h": "c",
-        "tipos_comuns.h": "c"
+        "tipos_comuns.h": "c",
+        "string.h": "c",
+        "stdio.h": "c",
+        "stdlib.h": "c"
     }
 }

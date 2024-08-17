@@ -5,15 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-
-bool contemPonto(Retangulo r, Ponto p) {
-    return (p.x >= r.lb.x && p.x <= r.rt.x && p.y >= r.lb.y && p.y <= r.rt.y);
-}
-
-bool interseccao(Retangulo r1, Retangulo r2) {
-    return !(r2.lb.x > r1.rt.x || r2.rt.x < r1.lb.x || r2.lb.y > r1.rt.y || r2.rt.y < r1.lb.y);
-}
-
 QuadTree* criarQuadTree(Retangulo boundary) {
     QuadTree* qt = (QuadTree*)malloc(sizeof(QuadTree));
     qt->limites = boundary;
@@ -24,7 +15,6 @@ QuadTree* criarQuadTree(Retangulo boundary) {
     qt->southEast = NULL;
     return qt;
 }
-
 bool insere(QuadTree* qt, Ponto p) {
     if (!contemPonto(qt->limites, p))
         return false;
@@ -46,6 +36,15 @@ bool insere(QuadTree* qt, Ponto p) {
     return false;
 }
 
+bool contemPonto(Retangulo r, Ponto p) {
+    return (p.x >= r.lb.x && p.x <= r.rt.x && p.y >= r.lb.y && p.y <= r.rt.y);
+}
+
+bool interseccao(Retangulo r1, Retangulo r2) {
+    return !(r2.lb.x > r1.rt.x || r2.rt.x < r1.lb.x || r2.lb.y > r1.rt.y || r2.rt.y < r1.lb.y);
+}
+
+
 void dividir(QuadTree* qt) {
     double midX = (double)(qt->limites.lb.x + qt->limites.rt.x) / 2.0;
     double midY = (double)(qt->limites.lb.y + qt->limites.rt.y) / 2.0;
@@ -61,67 +60,34 @@ void dividir(QuadTree* qt) {
     qt->southEast = criarQuadTree(se);
 }
 
-int buscaPonto(QuadTree* qt, Ponto p) {
-    if (qt->ponto != NULL && qt->ponto->x == p.x && qt->ponto->y == p.y)
-        return 1;
 
+Ponto* buscarPontoPorIdend(QuadTree *qt, const char *idend) {
+    if (qt == NULL) {
+        return NULL;
+    }
+
+    // Se o ponto atual da QuadTree corresponde ao `idend` buscado
+    if (qt->ponto != NULL && strcmp(qt->ponto->station_info->idend, idend) == 0) {
+        return qt->ponto;
+    }
+
+    // Recursivamente busca nos quadrantes filhos (noroeste, nordeste, sudoeste, sudeste)
+    Ponto *p = NULL;
     if (qt->northWest != NULL) {
-        if (buscaPonto(qt->northWest, p)) return 1;
-        if (buscaPonto(qt->northEast, p)) return 1;
-        if (buscaPonto(qt->southWest, p)) return 1;
-        if (buscaPonto(qt->southEast, p)) return 1;
+        p = buscarPontoPorIdend(qt->northWest, idend);
+    }
+    if (p == NULL && qt->northEast != NULL) {
+        p = buscarPontoPorIdend(qt->northEast, idend);
+    }
+    if (p == NULL && qt->southWest != NULL) {
+        p = buscarPontoPorIdend(qt->southWest, idend);
+    }
+    if (p == NULL && qt->southEast != NULL) {
+        p = buscarPontoPorIdend(qt->southEast, idend);
     }
 
-    return 0; // Ponto não encontrado
+    return p;
 }
-
-Ponto* buscaIntervalo(QuadTree* qt, Retangulo r, int* count) {
-    *count = 0;
-    Ponto* pontos = NULL;
-
-    if (!interseccao(qt->limites, r))
-        return pontos;
-
-    if (qt->ponto != NULL && contemPonto(r, *(qt->ponto))) {
-        pontos = (Ponto*)malloc(sizeof(Ponto));
-        *pontos = *(qt->ponto);
-        (*count)++;
-    }
-
-    if (qt->northWest == NULL)
-        return pontos;
-
-    int nwCount, neCount, swCount, seCount;
-    Ponto* nwPontos = buscaIntervalo(qt->northWest, r, &nwCount);
-    Ponto* nePontos = buscaIntervalo(qt->northEast, r, &neCount);
-    Ponto* swPontos = buscaIntervalo(qt->southWest, r, &swCount);
-    Ponto* sePontos = buscaIntervalo(qt->southEast, r, &seCount);
-
-    int totalCount = nwCount + neCount + swCount + seCount;
-    if (totalCount > 0) {
-        pontos = (Ponto*)realloc(pontos, (*count + totalCount) * sizeof(Ponto));
-        if (nwPontos) {
-            memcpy(pontos + *count, nwPontos, nwCount * sizeof(Ponto));
-            free(nwPontos);
-        }
-        if (nePontos) {
-            memcpy(pontos + *count + nwCount, nePontos, neCount * sizeof(Ponto));
-            free(nePontos);
-        }
-        if (swPontos) {
-            memcpy(pontos + *count + nwCount + neCount, swPontos, swCount * sizeof(Ponto));
-            free(swPontos);
-        }
-        if (sePontos) {
-            memcpy(pontos + *count + nwCount + neCount + swCount, sePontos, seCount * sizeof(Ponto));
-            free(sePontos);
-        }
-        *count += totalCount;
-    }
-
-    return pontos;
-}
-
 double calcularDistancia(Ponto a, Ponto b) {
     return sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
 }

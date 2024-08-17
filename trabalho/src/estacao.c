@@ -58,33 +58,7 @@ int load_csv(const char *filename, QuadTree **stationTree) {
     num_stations = i;
     return i;
 }
-Ponto* buscarPontoPorIdend(QuadTree *qt, const char *idend) {
-    if (qt == NULL) {
-        return NULL;
-    }
 
-    // Se o ponto atual da QuadTree corresponde ao `idend` buscado
-    if (qt->ponto != NULL && strcmp(qt->ponto->station_info->idend, idend) == 0) {
-        return qt->ponto;
-    }
-
-    // Recursivamente busca nos quadrantes filhos (noroeste, nordeste, sudoeste, sudeste)
-    Ponto *p = NULL;
-    if (qt->northWest != NULL) {
-        p = buscarPontoPorIdend(qt->northWest, idend);
-    }
-    if (p == NULL && qt->northEast != NULL) {
-        p = buscarPontoPorIdend(qt->northEast, idend);
-    }
-    if (p == NULL && qt->southWest != NULL) {
-        p = buscarPontoPorIdend(qt->southWest, idend);
-    }
-    if (p == NULL && qt->southEast != NULL) {
-        p = buscarPontoPorIdend(qt->southEast, idend);
-    }
-
-    return p;
-}
 void activate_station(const char *idend, QuadTree *stationTree) {
     if (stationTree == NULL) {
         printf("QuadTree não inicializada.\n");

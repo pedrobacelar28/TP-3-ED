@@ -41,17 +41,13 @@ typedef struct QuadTree {
 // Funções da QuadTree
 QuadTree* criarQuadTree(Retangulo boundary);
 bool insere(QuadTree* qt, Ponto p);
-void reorganizarHeap(PontoDistancia* heap, int tamanhoHeap);
-void dividir(QuadTree* qt);
-int buscaPonto(QuadTree* qt, Ponto p);
-Ponto* buscaIntervalo(QuadTree* qt, Retangulo r, int* count);
-void buscaKNN(QuadTree*, Ponto, int);
-// Funções auxiliares
 bool contemPonto(Retangulo r, Ponto p);
 bool interseccao(Retangulo r1, Retangulo r2);
-void maxHeapify(PontoDistancia* heap, int tamanhoHeap, int i);
-bool pontoJaNoHeap(PontoDistancia* heap, int tamanhoHeap, Ponto* ponto);
+void dividir(QuadTree* qt);
+Ponto* buscarPontoPorIdend(QuadTree *qt, const char *idend);
 double calcularDistancia(Ponto a, Ponto b);
+bool pontoJaNoHeap(PontoDistancia* heap, int tamanhoHeap, Ponto* ponto);
+void maxHeapify(PontoDistancia* heap, int tamanhoHeap, int i);
 void inserirPontoProximo(PontoDistancia* heap, int* tamanhoHeap, int K, Ponto* ponto, double distancia);
 void buscaKNNRecursiva(QuadTree* qt, Ponto p, PontoDistancia* heap, int* tamanhoHeap, int K);
 
