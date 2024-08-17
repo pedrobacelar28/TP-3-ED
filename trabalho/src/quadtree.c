@@ -15,6 +15,7 @@ QuadTree* criarQuadTree(Retangulo boundary) {
     qt->southEast = NULL;
     return qt;
 }
+
 bool insere(QuadTree* qt, Ponto p) {
     if (!contemPonto(qt->limites, p))
         return false;
@@ -36,6 +37,7 @@ bool insere(QuadTree* qt, Ponto p) {
     return false;
 }
 
+
 bool contemPonto(Retangulo r, Ponto p) {
     return (p.x >= r.lb.x && p.x <= r.rt.x && p.y >= r.lb.y && p.y <= r.rt.y);
 }
@@ -43,6 +45,8 @@ bool contemPonto(Retangulo r, Ponto p) {
 bool interseccao(Retangulo r1, Retangulo r2) {
     return !(r2.lb.x > r1.rt.x || r2.rt.x < r1.lb.x || r2.lb.y > r1.rt.y || r2.rt.y < r1.lb.y);
 }
+
+
 
 
 void dividir(QuadTree* qt) {
@@ -60,34 +64,6 @@ void dividir(QuadTree* qt) {
     qt->southEast = criarQuadTree(se);
 }
 
-
-Ponto* buscarPontoPorIdend(QuadTree *qt, const char *idend) {
-    if (qt == NULL) {
-        return NULL;
-    }
-
-    // Se o ponto atual da QuadTree corresponde ao `idend` buscado
-    if (qt->ponto != NULL && strcmp(qt->ponto->station_info->idend, idend) == 0) {
-        return qt->ponto;
-    }
-
-    // Recursivamente busca nos quadrantes filhos (noroeste, nordeste, sudoeste, sudeste)
-    Ponto *p = NULL;
-    if (qt->northWest != NULL) {
-        p = buscarPontoPorIdend(qt->northWest, idend);
-    }
-    if (p == NULL && qt->northEast != NULL) {
-        p = buscarPontoPorIdend(qt->northEast, idend);
-    }
-    if (p == NULL && qt->southWest != NULL) {
-        p = buscarPontoPorIdend(qt->southWest, idend);
-    }
-    if (p == NULL && qt->southEast != NULL) {
-        p = buscarPontoPorIdend(qt->southEast, idend);
-    }
-
-    return p;
-}
 double calcularDistancia(Ponto a, Ponto b) {
     return sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
 }
@@ -138,22 +114,6 @@ void inserirPontoProximo(PontoDistancia* heap, int* tamanhoHeap, int K, Ponto* p
         heap[0].ponto = ponto;
         heap[0].distancia = distancia;
         maxHeapify(heap, *tamanhoHeap, 0);
-    }
-}
-void reorganizarHeap(PontoDistancia* heap, int tamanhoHeap) {
-    int i = 0;
-    while (2 * i + 1 < tamanhoHeap) {
-        int maiorFilho = 2 * i + 1;
-        if (2 * i + 2 < tamanhoHeap && heap[2 * i + 2].distancia > heap[maiorFilho].distancia) {
-            maiorFilho = 2 * i + 2;
-        }
-        if (heap[i].distancia >= heap[maiorFilho].distancia) {
-            break;
-        }
-        PontoDistancia temp = heap[i];
-        heap[i] = heap[maiorFilho];
-        heap[maiorFilho] = temp;
-        i = maiorFilho;
     }
 }
 
