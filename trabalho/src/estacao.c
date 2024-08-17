@@ -58,49 +58,75 @@ int load_csv(const char *filename, QuadTree **stationTree) {
     num_stations = i;
     return i;
 }
-
-void activate_station(const char *idend,QuadTree *stationTree) {
-    int count = 0;
-    Retangulo boundary = {{0, 0}, {100000000, 100000000}};
-    Ponto *pontos = buscaIntervalo(stationTree, boundary, &count);
-
-    for (int i = 0; i < count; i++) {
-        if (strcmp(pontos[i].station_info->idend, idend) == 0) {
-            if (pontos[i].station_info->active) {
-                printf("Ponto de recarga %s já estava ativo.\n", idend);
-            } else {
-                pontos[i].station_info->active = 1;
-                printf("Ponto de recarga %s ativado.\n", idend);
-            }
-            free(pontos);  // Libera a memória alocada antes de retornar
-            return;
-        }
+Ponto* buscarPontoPorIdend(QuadTree *qt, const char *idend) {
+    if (qt == NULL) {
+        return NULL;
     }
-    
-    printf("Ponto de recarga %s não encontrado.\n", idend);
-    free(pontos);  // Libera a memória alocada após a busca
+
+    // Se o ponto atual da QuadTree corresponde ao `idend` buscado
+    if (qt->ponto != NULL && strcmp(qt->ponto->station_info->idend, idend) == 0) {
+        return qt->ponto;
+    }
+
+    // Recursivamente busca nos quadrantes filhos (noroeste, nordeste, sudoeste, sudeste)
+    Ponto *p = NULL;
+    if (qt->northWest != NULL) {
+        p = buscarPontoPorIdend(qt->northWest, idend);
+    }
+    if (p == NULL && qt->northEast != NULL) {
+        p = buscarPontoPorIdend(qt->northEast, idend);
+    }
+    if (p == NULL && qt->southWest != NULL) {
+        p = buscarPontoPorIdend(qt->southWest, idend);
+    }
+    if (p == NULL && qt->southEast != NULL) {
+        p = buscarPontoPorIdend(qt->southEast, idend);
+    }
+
+    return p;
+}
+void activate_station(const char *idend, QuadTree *stationTree) {
+    if (stationTree == NULL) {
+        printf("QuadTree não inicializada.\n");
+        return;
+    }
+
+    if (stationTree->ponto != NULL && strcmp(stationTree->ponto->station_info->idend, idend) == 0) {
+        if (stationTree->ponto->station_info->active) {
+            printf("Ponto de recarga %s já estava ativo.\n", idend);
+        } else {
+            stationTree->ponto->station_info->active = 1;
+            printf("Ponto de recarga %s ativado.\n", idend);
+        }
+        return;
+    }
+
+    if (stationTree->northWest) activate_station(idend, stationTree->northWest);
+    if (stationTree->northEast) activate_station(idend, stationTree->northEast);
+    if (stationTree->southWest) activate_station(idend, stationTree->southWest);
+    if (stationTree->southEast) activate_station(idend, stationTree->southEast);
 }
 
-void deactivate_station(const char *idend,QuadTree *stationTree) {
-    int count = 0;
-    Retangulo boundary = {{0, 0}, {100000000, 100000000}};
-    Ponto *pontos = buscaIntervalo(stationTree, boundary, &count);
-
-    for (int i = 0; i < count; i++) {
-        if (strcmp(pontos[i].station_info->idend, idend) == 0) {
-            if (!pontos[i].station_info->active) {
-                printf("Ponto de recarga %s já estava desativado.\n", idend);
-            } else {
-                pontos[i].station_info->active = 0;
-                printf("Ponto de recarga %s desativado.\n", idend);
-            }
-            free(pontos);  // Libera a memória alocada antes de retornar
-            return;
-        }
+void deactivate_station(const char *idend, QuadTree *stationTree) {
+    if (stationTree == NULL) {
+        printf("QuadTree não inicializada.\n");
+        return;
     }
 
-    printf("Ponto de recarga %s não encontrado.\n", idend);
-    free(pontos);  // Libera a memória alocada após a busca
+    if (stationTree->ponto != NULL && strcmp(stationTree->ponto->station_info->idend, idend) == 0) {
+        if (!stationTree->ponto->station_info->active) {
+            printf("Ponto de recarga %s já estava desativado.\n", idend);
+        } else {
+            stationTree->ponto->station_info->active = 0;
+            printf("Ponto de recarga %s desativado.\n", idend);
+        }
+        return;
+    }
+
+    if (stationTree->northWest) deactivate_station(idend, stationTree->northWest);
+    if (stationTree->northEast) deactivate_station(idend, stationTree->northEast);
+    if (stationTree->southWest) deactivate_station(idend, stationTree->southWest);
+    if (stationTree->southEast) deactivate_station(idend, stationTree->southEast);
 }
 
 // Função para imprimir informações da estação de recarga
@@ -116,14 +142,7 @@ void printrecharge(addr_t *rechargevet) {
 
 // Função para encontrar as estações mais próximas
 // Função para encontrar as estações mais próximas
-int compararDistancias(const void *a, const void *b) {
-    PontoDistancia *pdA = (PontoDistancia *)a;
-    PontoDistancia *pdB = (PontoDistancia *)b;
 
-    if (pdA->distancia < pdB->distancia) return -1;
-    if (pdA->distancia > pdB->distancia) return 1;
-    return 0;
-}
 // Função para encontrar as estações mais próximas
 void find_nearest_stations(double x, double y, int n, QuadTree *stationTree) {
     // Cria o ponto de referência (a localização de onde queremos encontrar as estações mais próximas)
@@ -146,9 +165,15 @@ void find_nearest_stations(double x, double y, int n, QuadTree *stationTree) {
 
     // Chama a busca KNN recursiva para preencher o heap com os n pontos mais próximos
     buscaKNNRecursiva(stationTree, referencia, heap, &tamanhoHeap, n);
-
-    // Ordena o heap (vetor) de pontos mais próximos pela distância
-    qsort(heap, tamanhoHeap, sizeof(PontoDistancia), compararDistancias);
+    for (int i = 0; i < tamanhoHeap - 1; i++) {
+        for (int j = 0; j < tamanhoHeap - i - 1; j++) {
+            if (heap[j].distancia > heap[j + 1].distancia) {
+                PontoDistancia temp = heap[j];
+                heap[j] = heap[j + 1];
+                heap[j + 1] = temp;
+            }
+        }
+    }   
 
     // Imprime os n pontos mais próximos encontrados, agora ordenados
     for (int i = 0; i < tamanhoHeap; i++) {
